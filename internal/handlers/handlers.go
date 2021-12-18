@@ -38,7 +38,7 @@ type WsJsonResponse struct {
 	MessageType string `json:"message_type"`
 }
 
-// upgradeConnection upgrade a normal http-request to a websocket connection
+// upgradeConnection upgrade a normal http server connection to a websocket protocol
 func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgradeConnection.Upgrade(w, r, nil)
 	if err != nil {
@@ -53,7 +53,6 @@ func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		checkError(err)
 	}
-
 }
 
 func renderPage(w http.ResponseWriter, tmpl string, data jet.VarMap) error {
