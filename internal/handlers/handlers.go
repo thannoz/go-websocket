@@ -1,12 +1,17 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/CloudyKit/jet/v6"
 	"github.com/gorilla/websocket"
 )
+
+// create a channel & a place to hold all connected users
+var wsChan = make(chan WsPayload)
+var clients = make(map[WebSocketConnection]string)
 
 var views = jet.NewSet(
 	jet.NewOSFileSystemLoader("./html"),
@@ -61,9 +66,62 @@ func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	var response WsJsonResponse
 	response.Message = `<em><small>Connected to server</small></em>`
 
+	// Added users to map when connected to ws-endpoint
+	conn := WebSocketConnection{Conn: ws}
+	clients[conn] = ""
+
 	err = ws.WriteJSON(response)
 	if err != nil {
 		checkError(err)
+	}
+
+	go ListenforWs(&conn)
+}
+
+// take users away from WsEndpoint & put them into a goroutine
+func ListenforWs(conn *WebSocketConnection) {
+	// if connection (goroutine) dies, recover us
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Error", fmt.Sprintf("%v", r))
+		}
+	}()
+
+	// listening for a payload
+	var payload WsPayload
+	for {
+		err := conn.ReadJSON(&payload)
+		if err != nil {
+			// do nothing
+		} else {
+			payload.Conn = *conn
+			wsChan <- payload
+		}
+	}
+}
+
+func ListenToWsChannel() {
+	var res WsJsonResponse
+
+	// everytime we get a value from the channel, we use our res var to
+	// populate it with some information
+	for {
+		event := <-wsChan
+		res.Action = "Got here"
+		res.Message = fmt.Sprintf("Some message, and action was %s", event.Action)
+		broadcastToAll(res)
+	}
+}
+
+// broadcast information to all users
+func broadcastToAll(res WsJsonResponse) {
+	for client := range clients {
+		err := client.WriteJSON(res)
+		if err != nil {
+			log.Println("websocket err")
+			_ = client.Close()
+			delete(clients, client)
+		}
 	}
 }
 
