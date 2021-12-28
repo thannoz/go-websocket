@@ -37,11 +37,12 @@ func Home(w http.ResponseWriter, request *http.Request) {
 	}
 }
 
+// The Conn type represents a WebSocket connection.
 type WebSocketConnection struct {
 	*websocket.Conn
 }
 
-// WsJsonResponse defines the response sent back from websocket
+// WsJsonResponse defines the response sent back from websocket.
 type WsJsonResponse struct {
 	Action         string   `json:"action"`
 	Message        string   `json:"message"`
@@ -49,7 +50,7 @@ type WsJsonResponse struct {
 	ConnectedUsers []string `json:"connected_users"`
 }
 
-// WsJsonPayload define the information we will send to the server
+// WsJsonPayload define the information we will send to the server.
 type WsPayload struct {
 	Action   string              `json:"action"`
 	Username string              `json:"username"`
@@ -57,7 +58,7 @@ type WsPayload struct {
 	Conn     WebSocketConnection `json:"-"`
 }
 
-// upgradeConnection upgrade a normal http server connection to a websocket protocol
+// upgradeConnection upgrade a normal http server connection to a websocket protocol.
 func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgradeConnection.Upgrade(w, r, nil)
 	if err != nil {
@@ -120,12 +121,17 @@ func ListenToWsChannel() {
 			broadcastToAll(res)
 
 		case "left":
+			// handle the case when a user leaves the page
 			res.Action = "list_users"
 			delete(clients, event.Conn)
 			users := getUserList()
 			res.ConnectedUsers = users
 			broadcastToAll(res)
-
+		case "broadcast":
+			// handle the case when a message is send.
+			res.Action = "broadcast"
+			res.Message = fmt.Sprintf("<strong>%s</strong>: %s", event.Username, event.Message)
+			broadcastToAll(res)
 		}
 	}
 }
@@ -141,7 +147,7 @@ func getUserList() []string {
 	return userList
 }
 
-// broadcast information to all users
+// broadcast information to all users.
 func broadcastToAll(res WsJsonResponse) {
 	for client := range clients {
 		err := client.WriteJSON(res)
